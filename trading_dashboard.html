@@ -20,13 +20,101 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const DOC = doc(db, 'journal', 'trades');
+  const db  = getFirestore(app);
 
-  // Expose to global scope
+  // Two documents:
+  // 'journal/trades'     → manual trades added via dashboard
+  // 'journal/trades_raw' → EA auto-synced trades from MT5
+  const DOC_MANUAL = doc(db, 'journal', 'trades');
+  const DOC_EA     = doc(db, 'journal', 'trades_raw');
+
+  // Local cache of each source
+  let manualTrades = null;   // null = not yet loaded
+  let eaTrades     = null;   // null = not yet loaded
+
+  // ── Convert EA Firestore map format → dashboard trade object ──
+  // EA stores trades as trades_raw: { trades0: {mapValue:{fields:{...}}}, trades1: ... }
+  function parseEATrades(docData) {
+    if (!docData) return [];
+    const result = [];
+    const keys = Object.keys(docData).filter(k => k.startsWith('trades'));
+    // Sort numerically so order is preserved
+    keys.sort((a, b) => {
+      const na = parseInt(a.replace('trades', ''), 10);
+      const nb = parseInt(b.replace('trades', ''), 10);
+      return na - nb;
+    });
+    keys.forEach(key => {
+      const mapVal = docData[key];
+      if (!mapVal || !mapVal.mapValue || !mapVal.mapValue.fields) return;
+      const f = mapVal.mapValue.fields;
+      const get = (field, fallback = 0) => {
+        if (!f[field]) return fallback;
+        if (f[field].doubleValue  !== undefined) return f[field].doubleValue;
+        if (f[field].integerValue !== undefined) return parseFloat(f[field].integerValue);
+        if (f[field].stringValue  !== undefined) return f[field].stringValue;
+        return fallback;
+      };
+      result.push({
+        r$:       Math.round(get('r$')  * 100) / 100,
+        rR:       Math.round(get('rR')  * 10000) / 10000,
+        wl:       get('wl', 'W'),
+        bal:      Math.round(get('bal') * 100) / 100,
+        peak:     Math.round(get('peak')* 100) / 100,
+        dd$:      Math.round(get('dd$') * 100) / 100,
+        ddPct:    Math.round(get('ddPct')),
+        lStreak:  parseInt(get('lStreak', 0)),
+        risk:     Math.round(get('risk') * 100) / 100,
+        gainPct:  Math.round(get('gainPct') * 10000) / 10000,
+        startBal: Math.round(get('startBal') * 100) / 100,
+        _source:  'ea'   // internal tag so we know origin
+      });
+    });
+    return result;
+  }
+
+  // ── Merge manual + EA trades, recalculate balance chain ──
+  function mergeAndRecalc() {
+    if (manualTrades === null || eaTrades === null) return; // wait for both
+
+    // EA trades come after manual trades, sorted by tradeNum
+    const combined = [...manualTrades, ...eaTrades];
+
+    // Recalculate the full balance chain so equity curve is consistent
+    if (combined.length === 0) { window.trades = []; return; }
+
+    let runningPeak = combined[0].startBal || 3533;
+    let lStreak = 0;
+
+    combined.forEach((t, i) => {
+      if (i === 0) {
+        t.bal  = Math.round((t.startBal + t.r$) * 100) / 100;
+      } else {
+        t.startBal = combined[i-1].bal;
+        t.bal      = Math.round((t.startBal + t.r$) * 100) / 100;
+      }
+      runningPeak = Math.max(runningPeak, t.bal);
+      t.peak   = Math.round(runningPeak * 100) / 100;
+      t.dd$    = Math.max(0, Math.round((t.peak - t.bal) * 100) / 100);
+      t.ddPct  = Math.round((t.dd$ / t.peak) * 100);
+      t.gainPct = t.startBal > 0
+                  ? Math.round((t.r$ / t.startBal) * 10000) / 100
+                  : 0;
+      lStreak    = t.wl === 'L' ? lStreak + 1 : 0;
+      t.lStreak  = lStreak;
+    });
+
+    window.trades = combined;
+    window._syncStatus('synced');
+    if (typeof window.renderAll === 'function') window.renderAll();
+  }
+
+  // ── Save manual trades back to Firestore ──
   window._fbSave = async (tradesArr) => {
     try {
-      await setDoc(DOC, { trades: tradesArr });
+      // Only save the manual (non-EA) trades back to the manual doc
+      const toSave = tradesArr.filter(t => t._source !== 'ea');
+      await setDoc(DOC_MANUAL, { trades: toSave });
       window._syncStatus('saved');
     } catch(e) {
       console.error('Firebase save error:', e);
@@ -34,24 +122,41 @@
     }
   };
 
-  // Listen for real-time updates from any device
-  onSnapshot(DOC, (snap) => {
+  // ── Listen to MANUAL trades document ──
+  onSnapshot(DOC_MANUAL, (snap) => {
     if (snap.exists()) {
       const data = snap.data();
-      if (data && data.trades) {
-        window.trades = data.trades;
-        window._syncStatus('synced');
-        if (typeof window.renderAll === 'function') window.renderAll();
-      }
+      manualTrades = (data && data.trades) ? data.trades : [];
     } else {
-      // First time: push default data
-      if (window._defaultPushed) return;
-      window._defaultPushed = true;
-      window._fbSave(window.DEFAULT_TRADES);
+      // First ever load — push the 59 default trades
+      if (!window._defaultPushed) {
+        window._defaultPushed = true;
+        manualTrades = window.DEFAULT_TRADES;
+        window._fbSave(window.DEFAULT_TRADES);
+      } else {
+        manualTrades = [];
+      }
     }
+    mergeAndRecalc();
   }, (err) => {
-    console.error('Firestore listener error:', err);
+    console.error('Manual trades listener error:', err);
     window._syncStatus('offline');
+  });
+
+  // ── Listen to EA trades_raw document ──
+  onSnapshot(DOC_EA, (snap) => {
+    if (snap.exists()) {
+      eaTrades = parseEATrades(snap.data());
+      console.log('EA trades received from MT5:', eaTrades.length);
+    } else {
+      eaTrades = []; // No EA trades yet — that's fine
+    }
+    mergeAndRecalc();
+  }, (err) => {
+    // trades_raw might not exist yet — that's OK, just set empty
+    console.warn('EA trades listener:', err.message);
+    eaTrades = [];
+    mergeAndRecalc();
   });
 </script>
 <style>
