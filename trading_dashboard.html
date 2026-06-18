@@ -228,6 +228,60 @@
   .summary-row:last-child{border-bottom:none;}
   .summary-row span:first-child{color:var(--muted);font-size:11px;}
   .summary-row span:last-child{font-weight:700;}
+
+  /* ── RECOVERY TRACKER ── */
+  .recovery-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:12px; }
+  .recovery-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+  .recovery-stat { background:var(--surface2); border-radius:8px; padding:14px; text-align:center; border:1px solid var(--border); }
+  .recovery-stat .rv-label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+  .recovery-stat .rv-value { font-size:22px; font-weight:800; letter-spacing:-1px; }
+  .recovery-stat .rv-sub { font-size:10px; color:var(--muted); margin-top:4px; }
+  .recovery-progress { margin:16px 0; }
+  .recovery-progress-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .recovery-progress-track { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .recovery-progress-fill { height:100%; border-radius:4px; transition:width .8s cubic-bezier(.4,0,.2,1); background:linear-gradient(90deg,#ff4d6d,#fbbf24,#00e5a0); }
+  .recovery-milestones { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .milestone { padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; border:1px solid var(--border); }
+  .milestone.reached { background:rgba(0,229,160,.1); color:var(--win); border-color:rgba(0,229,160,.3); }
+  .milestone.next { background:rgba(251,191,36,.1); color:var(--accent3); border-color:rgba(251,191,36,.3); }
+  .milestone.future { background:var(--surface2); color:var(--muted); }
+
+  /* ── AI ADVISOR ── */
+  .advisor-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+  .advisor-avatar { width:44px; height:44px; background:linear-gradient(135deg,var(--accent),#00b87a); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .advisor-title h2 { font-size:15px; font-weight:800; }
+  .advisor-title p { font-size:11px; color:var(--muted); margin-top:2px; }
+  .advisor-btn-row { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .advisor-loading { display:flex; align-items:center; gap:12px; padding:40px 20px; color:var(--muted); font-size:13px; }
+  .advisor-loading .spin-sm { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; }
+  .advisor-stamp { font-size:10px; color:var(--muted); margin-top:16px; padding-top:12px; border-top:1px solid var(--border); }
+  /* Insight cards */
+  .insight-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-bottom:16px; }
+  .insight-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; position:relative; overflow:hidden; }
+  .insight-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .insight-card.green::before { background:var(--win); }
+  .insight-card.yellow::before { background:var(--accent3); }
+  .insight-card.red::before { background:var(--loss); }
+  .insight-card.blue::before { background:#60a5fa; }
+  .insight-icon { font-size:22px; margin-bottom:8px; }
+  .insight-title { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+  .insight-card.green .insight-title { color:var(--win); }
+  .insight-card.yellow .insight-title { color:var(--accent3); }
+  .insight-card.red .insight-title { color:var(--loss); }
+  .insight-card.blue .insight-title { color:#60a5fa; }
+  .insight-bignum { font-size:28px; font-weight:800; letter-spacing:-1px; margin-bottom:6px; }
+  .insight-card.green .insight-bignum { color:var(--win); }
+  .insight-card.yellow .insight-bignum { color:var(--accent3); }
+  .insight-card.red .insight-bignum { color:var(--loss); }
+  .insight-card.blue .insight-bignum { color:#60a5fa; }
+  .insight-text { font-size:12px; line-height:1.6; color:#a0a8b8; }
+  /* Scorecard gauges */
+  .scorecard-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+  .gauge-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .gauge-label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+  .gauge-track { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; margin-bottom:8px; }
+  .gauge-fill { height:100%; border-radius:3px; transition:width .8s cubic-bezier(.4,0,.2,1); }
+  .gauge-value { font-size:16px; font-weight:800; }
   #loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
   #loadingOverlay .spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -255,6 +309,8 @@
     <button class="tab" onclick="showTab('trades')">Trade Log</button>
     <button class="tab" onclick="showTab('manage')">Add / Manage</button>
     <button class="tab" onclick="showTab('data')">Import / Export</button>
+    <button class="tab" onclick="showTab('recovery')">Recovery Tracker</button>
+    <button class="tab" onclick="showTab('advisor')">AI Advisor</button>
   </div>
 
   <!-- OVERVIEW -->
@@ -353,6 +409,116 @@
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Paste previously exported JSON to restore. This will overwrite cloud data.</p>
       <textarea id="importArea" placeholder="Paste JSON here..."></textarea>
       <div class="io-row"><button class="btn btn-primary" onclick="importData()">Import & Sync</button></div>
+    </div>
+  </div>
+
+  <!-- RECOVERY TRACKER -->
+  <div id="tab-recovery" class="tab-content">
+    <div class="section-title">Recovery Tracker — Road Back to ATH</div>
+
+    <!-- Main stats -->
+    <div class="recovery-card">
+      <div class="recovery-grid" id="recoveryStats"></div>
+
+      <!-- Progress bar -->
+      <div class="recovery-progress">
+        <div class="recovery-progress-label">
+          <span id="recoveryProgressLabel">Recovery Progress</span>
+          <span id="recoveryProgressPct">0%</span>
+        </div>
+        <div class="recovery-progress-track">
+          <div class="recovery-progress-fill" id="recoveryProgressFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Milestones -->
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Balance Milestones</div>
+      <div class="recovery-milestones" id="recoveryMilestones"></div>
+    </div>
+
+    <!-- Projected recovery curve chart -->
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-title">Projected Recovery Curve <span class="tag" id="recoveryChartTag"></span></div>
+      <canvas id="recoveryChart"></canvas>
+    </div>
+
+    <!-- Scenario table -->
+    <div class="card">
+      <div class="card-title">Recovery Scenarios — Trades Needed</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Win Rate</th>
+              <th>Avg R/Trade</th>
+              <th>Trades to ATH</th>
+              <th>Est. Duration</th>
+              <th>Assessment</th>
+            </tr>
+          </thead>
+          <tbody id="recoveryScenarios"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI ADVISOR -->
+  <div id="tab-advisor" class="tab-content">
+    <div class="advisor-header">
+      <div class="advisor-avatar">🧠</div>
+      <div class="advisor-title">
+        <h2>AI Trading Advisor</h2>
+        <p>Visual scorecard + AI insights based on your live data</p>
+      </div>
+    </div>
+
+    <div class="advisor-btn-row">
+      <button class="btn btn-primary" onclick="runAdvisor()">Generate Analysis</button>
+      <button class="btn" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="runAdvisor('deep')">Deep Analysis</button>
+    </div>
+
+    <!-- Static visual section — always rendered from live data -->
+    <div id="advisorVisuals" style="display:none">
+      <!-- Scorecard gauges -->
+      <div class="section-title">Performance Scorecard</div>
+      <div class="scorecard-grid" id="advisorScorecard"></div>
+
+      <!-- Charts row -->
+      <div class="chart-grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-title">Monthly Win Rate Trend</div>
+          <canvas id="advisorMonthlyWR"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Rolling 10-Trade Win Rate</div>
+          <canvas id="advisorRollingWR"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-grid-2" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-title">Radar — System Profile</div>
+          <canvas id="advisorRadar" style="max-height:220px"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Monthly PNL vs Win Rate</div>
+          <canvas id="advisorMoPnl"></canvas>
+        </div>
+      </div>
+
+      <!-- AI Insight cards -->
+      <div class="section-title">AI Insights</div>
+      <div class="insight-grid" id="advisorInsights">
+        <div style="color:var(--muted);font-size:12px;padding:10px">
+          Click Generate Analysis to load AI insights...
+        </div>
+      </div>
+      <div class="advisor-stamp" id="advisorStamp"></div>
+    </div>
+
+    <div id="advisorPlaceholder" style="color:var(--muted);font-size:13px;padding:20px 0;">
+      Click <strong style="color:var(--text)">"Generate Analysis"</strong> to get your personalised dashboard.
     </div>
   </div>
 </div>
@@ -894,10 +1060,415 @@ function showTab(id){
   if(id==='pnl') renderPNL();
   if(id==='trades') renderTable();
   if(id==='data') updateExport();
+  if(id==='recovery') renderRecovery();
+  if(id==='advisor') { /* renders on button click */ }
 }
 
 // ── TOAST ────────────────────────────────────
 function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2400);}
+
+
+// ── RECOVERY TRACKER ─────────────────────────
+function renderRecovery() {
+  const T = window.trades;
+  if(!T.length) return;
+
+  const s = computeStats();
+  const currentBal = T[T.length-1].bal;
+  const ath = Math.max(...T.map(t=>t.peak));
+  const distanceToATH = ath - currentBal;
+  const recoveryPct = Math.max(0, Math.min(100, ((currentBal - (ath - distanceToATH*2)) / distanceToATH) * 100));
+  const progressPct = distanceToATH <= 0 ? 100 : Math.max(0, Math.min(100, ((currentBal - (ath-distanceToATH)) / distanceToATH)*100));
+
+  // How many trades to recover at current expectancy
+  // Each trade gains expectancy_$ on average
+  // expectancy_$ = expectancy_R * oneR_dollar
+  const avgRisk = avg(T.map(t=>t.risk));
+  const oneR = currentBal * (avgRisk/100);
+  const expDollar = s.expectancy * oneR;
+  const tradesToATH = expDollar > 0 ? Math.ceil(distanceToATH / expDollar) : 999;
+
+  // Recovery progress (from lowest point since ATH)
+  const lowestBal = Math.min(...T.map(t=>t.bal));
+  const totalDrop = ath - lowestBal;
+  const recovered = currentBal - lowestBal;
+  const recPct = totalDrop > 0 ? Math.max(0,Math.min(100,(recovered/totalDrop)*100)) : 100;
+
+  // Stats
+  $('recoveryStats').innerHTML = [
+    { label:'All-Time High',    value:'$'+Math.round(ath).toLocaleString(),      sub:'Peak balance',            color:'var(--accent3)' },
+    { label:'Current Balance',  value:'$'+Math.round(currentBal).toLocaleString(), sub:'As of last trade',      color: distanceToATH<=0?'var(--win)':'var(--text)' },
+    { label:'Gap to ATH',       value: distanceToATH<=0 ? '✓ At ATH!' : '-$'+Math.round(distanceToATH).toLocaleString(), sub:'Amount to recover', color: distanceToATH<=0?'var(--win)':'var(--loss)' },
+    { label:'DD from ATH',      value: (distanceToATH/ath*100).toFixed(1)+'%',   sub:'Current drawdown',        color: distanceToATH>ath*0.2?'var(--loss)':'var(--accent3)' },
+    { label:'Trades to ATH',    value: distanceToATH<=0?'0':tradesToATH > 500?'500+':String(tradesToATH), sub:'At current expectancy', color:'var(--neutral)' },
+    { label:'Recovery Progress',value: recPct.toFixed(1)+'%',                    sub:'From lowest point',       color: recPct>=50?'var(--win)':'var(--accent3)' },
+  ].map(s=>`
+    <div class="recovery-stat">
+      <div class="rv-label">${s.label}</div>
+      <div class="rv-value" style="color:${s.color}">${s.value}</div>
+      <div class="rv-sub">${s.sub}</div>
+    </div>`).join('');
+
+  // Progress bar
+  $('recoveryProgressLabel').textContent = `Recovery: $${Math.round(lowestBal).toLocaleString()} → $${Math.round(ath).toLocaleString()}`;
+  $('recoveryProgressPct').textContent = recPct.toFixed(1)+'%';
+  $('recoveryProgressFill').style.width = recPct+'%';
+
+  // Milestones — every $500 from current up to ATH
+  const milestones = [];
+  const start = Math.ceil(currentBal/500)*500;
+  for(let m = Math.floor(lowestBal/500)*500; m <= ath+500; m+=500) {
+    milestones.push(m);
+  }
+  $('recoveryMilestones').innerHTML = milestones.map(m=>{
+    const reached = currentBal >= m;
+    const isNext  = !reached && milestones.filter(x=>x>currentBal)[0]===m;
+    const cls = reached?'reached':isNext?'next':'future';
+    const icon = reached?'✓':isNext?'→':'';
+    return `<div class="milestone ${cls}">${icon} $${m.toLocaleString()}</div>`;
+  }).join('');
+
+  // Projected recovery curve
+  // Simulate trades forward using current expectancy
+  const projTrades = Math.min(tradesToATH + 10, 80);
+  const projLabels = ['Now'];
+  const projData   = [currentBal];
+  const projLow    = [currentBal];
+  const projHigh   = [currentBal];
+
+  // Use current win rate and avg R to simulate
+  const avgWinD  = s.wins.length ? s.wins.reduce((a,t)=>a+t.r$,0)/s.wins.length : oneR*0.7;
+  const avgLossD = s.losses.length ? Math.abs(s.losses.reduce((a,t)=>a+t.r$,0)/s.losses.length) : oneR;
+
+  let bal = currentBal;
+  for(let i=1; i<=projTrades; i++) {
+    bal += expDollar;
+    projData.push(Math.round(bal));
+    // Optimistic: slightly higher win rate
+    projHigh.push(Math.round(currentBal + (expDollar*1.3)*i));
+    // Conservative: slightly lower
+    projLow.push(Math.round(currentBal + (expDollar*0.7)*i));
+    projLabels.push('T+'+ i);
+  }
+
+  $('recoveryChartTag').textContent = tradesToATH<=0?'✓ At ATH!':'~'+tradesToATH+' trades to ATH';
+
+  dc('recovery');
+  charts['recovery'] = new Chart($('recoveryChart'), {
+    type:'line',
+    data:{
+      labels: projLabels,
+      datasets:[
+        { label:'Conservative', data:projLow,  borderColor:'rgba(255,77,109,0.4)',  borderWidth:1, pointRadius:0, fill:false, borderDash:[4,4], tension:0.3 },
+        { label:'Expected',     data:projData, borderColor:'#00e5a0',               borderWidth:2.5, pointRadius:0, fill:false, tension:0.3 },
+        { label:'Optimistic',   data:projHigh, borderColor:'rgba(251,191,36,0.4)',  borderWidth:1, pointRadius:0, fill:false, borderDash:[4,4], tension:0.3 },
+      ]
+    },
+    options:{
+      ...baseOpts,
+      plugins:{
+        ...baseOpts.plugins,
+        legend:{ display:true, position:'bottom', labels:{ color:'#e8eaf0', padding:14, font:{size:11} } },
+        annotation:{ annotations:[{
+          type:'line', yMin:ath, yMax:ath,
+          borderColor:'rgba(251,191,36,0.8)', borderWidth:1.5, borderDash:[6,3],
+          label:{ content:'ATH $'+Math.round(ath).toLocaleString(), enabled:true, color:'#fbbf24', font:{size:10} }
+        }]}
+      },
+      interaction:{ mode:'index', intersect:false }
+    }
+  });
+
+  // Scenarios table
+  const scenarios = [
+    { name:'🔴 Bear Case',     wr:40, rMult:0.6 },
+    { name:'🟡 Current Form',  wr: Math.round(s.winRate), rMult:1.0 },
+    { name:'🟢 Phase 3 Form',  wr:80, rMult:1.0 },
+    { name:'⭐ Best Case',     wr:85, rMult:1.2 },
+  ];
+
+  $('recoveryScenarios').innerHTML = scenarios.map(sc=>{
+    const scOneR    = currentBal * (avgRisk/100);
+    const scAvgWinR = s.avgWinR * sc.rMult;
+    const scAvgLosR = s.avgLossR;
+    const scExp     = (sc.wr/100)*scAvgWinR*scOneR - (1-sc.wr/100)*scAvgLosR*scOneR;
+    const scTrades  = scExp > 0 ? Math.ceil(distanceToATH/scExp) : 999;
+    const scWeeks   = Math.ceil(scTrades/5); // ~5 trades/week
+    const assessment = scTrades<=20?'<span style="color:var(--win)">Fast recovery</span>':
+                       scTrades<=50?'<span style="color:var(--accent3)">Moderate</span>':
+                       '<span style="color:var(--loss)">Slow — review strategy</span>';
+    return `<tr>
+      <td style="font-weight:700">${sc.name}</td>
+      <td>${sc.wr}%</td>
+      <td>${(scAvgWinR*sc.rMult).toFixed(2)}R avg win</td>
+      <td style="font-weight:700;color:var(--accent3)">${scExp>0?scTrades:'N/A'}</td>
+      <td style="color:var(--muted)">${scExp>0?'~'+scWeeks+' weeks':'—'}</td>
+      <td>${assessment}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ── AI ADVISOR ────────────────────────────────
+
+// ── RENDER ADVISOR VISUALS (always from live data) ──
+function renderAdvisorVisuals() {
+  const T = window.trades;
+  if(!T.length) return;
+  const s = computeStats();
+
+  // ── SCORECARD GAUGES ──
+  const avgRisk = avg(T.map(t=>t.risk));
+  const recent10 = T.slice(-10);
+  const recentWR = recent10.filter(t=>t.wl==='W').length/recent10.length*100;
+  const curDD = T[T.length-1].ddPct;
+
+  const gauges = [
+    { label:'Win Rate',      value: s.winRate.toFixed(1)+'%',  pct: Math.min(100,s.winRate/80*100),     color: s.winRate>=55?'var(--win)':s.winRate>=45?'var(--accent3)':'var(--loss)' },
+    { label:'R:R Ratio',     value: s.rr.toFixed(2)+'R',       pct: Math.min(100,s.rr/1.5*100),         color: s.rr>=0.8?'var(--win)':s.rr>=0.6?'var(--accent3)':'var(--loss)' },
+    { label:'Expectancy',    value: s.expectancy.toFixed(3)+'R',pct: Math.min(100,Math.max(0,s.expectancy/0.3*100)), color: s.expectancy>0.1?'var(--win)':s.expectancy>0?'var(--accent3)':'var(--loss)' },
+    { label:'Profit Factor', value: s.profitFactor===Infinity?'∞':s.profitFactor.toFixed(2), pct: Math.min(100,(s.profitFactor-1)/1*100), color: s.profitFactor>=1.3?'var(--win)':s.profitFactor>=1.0?'var(--accent3)':'var(--loss)' },
+    { label:'Drawdown',      value: curDD+'%',                  pct: Math.max(0,100-curDD/30*100),       color: curDD<=10?'var(--win)':curDD<=20?'var(--accent3)':'var(--loss)' },
+    { label:'Recent Form',   value: recentWR.toFixed(0)+'%',   pct: Math.min(100,recentWR/80*100),      color: recentWR>=55?'var(--win)':recentWR>=40?'var(--accent3)':'var(--loss)' },
+  ];
+
+  document.getElementById('advisorScorecard').innerHTML = gauges.map(g=>`
+    <div class="gauge-card">
+      <div class="gauge-label">${g.label}</div>
+      <div class="gauge-track"><div class="gauge-fill" style="width:${g.pct}%;background:${g.color}"></div></div>
+      <div class="gauge-value" style="color:${g.color}">${g.value}</div>
+    </div>`).join('');
+
+  // ── MONTHLY WIN RATE TREND ──
+  const moMap = groupByMonth(T);
+  const moKeys = Object.keys(moMap).sort();
+  const moNames2 = {'2026-02':'Feb','2026-03':'Mar','2026-04':'Apr','2026-05':'May','2026-06':'Jun','2026-07':'Jul','2026-08':'Aug','2026-09':'Sep','2026-10':'Oct','2026-11':'Nov','2026-12':'Dec'};
+  const moWRs = moKeys.map(k=>{
+    const mo=moMap[k];
+    return Math.round(mo.trades.filter(t=>t.wl==='W').length/mo.trades.length*100);
+  });
+  const moPnls = moKeys.map(k=>Math.round(moMap[k].trades.reduce((a,t)=>a+t.r$,0)));
+
+  dc('advisorMonthlyWR');
+  charts['advisorMonthlyWR'] = new Chart(document.getElementById('advisorMonthlyWR'), {
+    type:'bar',
+    data:{
+      labels: moKeys.map(k=>moNames2[k]||k),
+      datasets:[
+        { label:'Win Rate %', data:moWRs, backgroundColor:moWRs.map(v=>v>=55?'rgba(0,229,160,0.7)':v>=45?'rgba(251,191,36,0.7)':'rgba(255,77,109,0.7)'), borderRadius:4 },
+        { label:'Benchmark 55%', data:moKeys.map(()=>55), type:'line', borderColor:'rgba(255,255,255,0.2)', borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false }
+      ]
+    },
+    options:{...baseOpts, plugins:{...baseOpts.plugins, legend:{display:false}}}
+  });
+
+  // ── ROLLING 10-TRADE WIN RATE ──
+  const rolling = [];
+  const rollingLabels = [];
+  for(let i=9; i<T.length; i++){
+    const slice = T.slice(i-9, i+1);
+    rolling.push(Math.round(slice.filter(t=>t.wl==='W').length/10*100));
+    rollingLabels.push('#'+(i+1));
+  }
+  dc('advisorRollingWR');
+  charts['advisorRollingWR'] = new Chart(document.getElementById('advisorRollingWR'), {
+    type:'line',
+    data:{
+      labels: rollingLabels,
+      datasets:[
+        { label:'Rolling WR%', data:rolling, borderColor:'#fbbf24', borderWidth:2, pointRadius:0, fill:true, backgroundColor:'rgba(251,191,36,0.06)', tension:0.4 },
+        { label:'55% line', data:rolling.map(()=>55), borderColor:'rgba(0,229,160,0.3)', borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false }
+      ]
+    },
+    options:{...baseOpts, plugins:{...baseOpts.plugins, legend:{display:false}}, scales:{...baseOpts.scales, y:{...baseOpts.scales.y, min:0, max:100}}}
+  });
+
+  // ── RADAR CHART ──
+  const maxDD_pct = T.length ? Math.max(...T.map(t=>t.ddPct)) : 0;
+  const radarData = [
+    Math.min(100, s.winRate/80*100),
+    Math.min(100, s.rr/1.5*100),
+    Math.min(100, Math.max(0,s.expectancy/0.3*100)),
+    Math.min(100, (s.profitFactor===Infinity?2:s.profitFactor-1)/1*100),
+    Math.max(0, 100-maxDD_pct/30*100),
+    Math.min(100, recentWR/80*100),
+  ];
+  dc('advisorRadar');
+  charts['advisorRadar'] = new Chart(document.getElementById('advisorRadar'), {
+    type:'radar',
+    data:{
+      labels:['Win Rate','R:R','Expectancy','Prof. Factor','Low DD','Recent Form'],
+      datasets:[{
+        label:'Your System',
+        data: radarData,
+        backgroundColor:'rgba(0,229,160,0.1)',
+        borderColor:'rgba(0,229,160,0.8)',
+        borderWidth:2,
+        pointBackgroundColor:'#00e5a0',
+        pointRadius:3,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#181c23',titleColor:'#e8eaf0',bodyColor:'#a0a8b8',borderColor:'#2a2e3a',borderWidth:1}},
+      scales:{r:{
+        ticks:{display:false},
+        grid:{color:'rgba(255,255,255,0.05)'},
+        pointLabels:{color:'#a0a8b8',font:{size:10}},
+        suggestedMin:0, suggestedMax:100
+      }}
+    }
+  });
+
+  // ── MONTHLY PNL vs WIN RATE ──
+  dc('advisorMoPnl');
+  charts['advisorMoPnl'] = new Chart(document.getElementById('advisorMoPnl'), {
+    type:'bar',
+    data:{
+      labels: moKeys.map(k=>moNames2[k]||k),
+      datasets:[
+        { label:'PNL $', data:moPnls, backgroundColor:moPnls.map(v=>v>=0?'rgba(0,229,160,0.7)':'rgba(255,77,109,0.7)'), borderRadius:4, yAxisID:'y' },
+        { label:'Win Rate %', data:moWRs, type:'line', borderColor:'#fbbf24', borderWidth:2, pointRadius:4, pointBackgroundColor:'#fbbf24', fill:false, yAxisID:'y1', tension:0.3 }
+      ]
+    },
+    options:{
+      ...baseOpts,
+      plugins:{...baseOpts.plugins, legend:{display:true, position:'bottom', labels:{color:'#e8eaf0',padding:12,font:{size:10}}}},
+      scales:{
+        y:{ ticks:{color:C.muted,font:{size:10}}, grid:{color:C.border}, position:'left' },
+        y1:{ ticks:{color:'#fbbf24',font:{size:10}}, grid:{display:false}, position:'right', min:0, max:100 },
+        x:{ ticks:{color:C.muted,font:{size:10}}, grid:{color:C.border} }
+      }
+    }
+  });
+}
+
+// ── AI ADVISOR ────────────────────────────────
+async function runAdvisor(mode) {
+  const T = window.trades;
+  if(!T.length){ return; }
+
+  const s = computeStats();
+  const ath = Math.max(...T.map(t=>t.peak));
+  const currentBal = T[T.length-1].bal;
+  const distToATH = ath - currentBal;
+  const recent10 = T.slice(-10);
+  const recentWR = recent10.filter(t=>t.wl==='W').length/recent10.length*100;
+  const recentPnl = recent10.reduce((a,t)=>a+t.r$,0);
+  const curDD = T[T.length-1].ddPct;
+  const curLS = T[T.length-1].lStreak;
+  const initBal = T[0].startBal;
+  const avgWinLast20 = T.slice(-20).filter(t=>t.wl==='W').length/Math.min(20,T.length)*100;
+
+  const moMap = groupByMonth(T);
+  const moKeys = Object.keys(moMap).sort();
+  const moSummary = moKeys.map(k=>{
+    const mo=moMap[k];
+    const wr=mo.trades.filter(t=>t.wl==='W').length/mo.trades.length*100;
+    const pnl=Math.round(mo.trades.reduce((a,t)=>a+t.r$,0));
+    return `${k}: ${mo.trades.length} trades, ${wr.toFixed(0)}% WR, PNL=${pnl>=0?'+':''}$${pnl}`;
+  }).join(' | ');
+
+  const isDeep = mode === 'deep';
+
+  const prompt = `You are a professional trading performance analyst. Analyse this XAUUSD breakout-straddle trader's data and provide exactly 4 insight cards in JSON format.
+
+TRADING DATA:
+- Total trades: ${T.length}, Win rate: ${s.winRate.toFixed(1)}%, Avg Win R: +${s.avgWinR.toFixed(3)}R, Avg Loss R: -${s.avgLossR.toFixed(3)}R
+- R:R ratio: ${s.rr.toFixed(3)}, Expectancy: ${s.expectancy.toFixed(4)}R/trade, Profit Factor: ${s.profitFactor.toFixed(2)}
+- Total PNL: $${Math.round(s.totalPnl)} (+${s.totalGainPct.toFixed(1)}% growth), Starting: $${Math.round(initBal)}, Current: $${Math.round(currentBal)}, ATH: $${Math.round(ath)}
+- Distance from ATH: $${Math.round(distToATH)}, Max DD: ${s.maxDD}%, Current DD: ${curDD}%, Current L streak: ${curLS}
+- Recent 10 trades: ${recentWR.toFixed(0)}% WR, PNL: ${recentPnl>=0?'+':''}$${Math.round(recentPnl)}, Last 20 WR: ${avgWinLast20.toFixed(0)}%
+- Monthly: ${moSummary}
+- Strategy: XAUUSD breakout-straddle, captures liquidity sweeps above PDH and below PDL
+- May 2026 was a ranging/consolidation market causing the drawdown period
+- Trader is based in Lebanon, personal funded account
+
+Return ONLY a valid JSON array with exactly 4 objects. No markdown, no explanation, just the JSON array:
+[
+  {
+    "color": "green",
+    "icon": "💪",
+    "title": "STRENGTHS",
+    "bignum": "main positive metric with unit",
+    "text": "2-3 sentences about what is working well. Be specific with numbers."
+  },
+  {
+    "color": "yellow", 
+    "icon": "⚠️",
+    "title": "WATCH OUT",
+    "bignum": "key risk metric with unit",
+    "text": "2-3 sentences about what to monitor or be careful about."
+  },
+  {
+    "color": "blue",
+    "icon": "💰",
+    "title": "CAPITAL THOUGHTS",
+    "bignum": "relevant $ figure",
+    "text": "2-3 sentences on whether to add capital, withdraw profits, or keep as is. Frame as thoughts not advice."
+  },
+  {
+    "color": "${isDeep ? 'red' : 'green'}",
+    "icon": "${isDeep ? '🎯' : '🎯'}",
+    "title": "${isDeep ? 'HONEST CONCERN' : 'NEXT STEPS'}",
+    "bignum": "relevant metric",
+    "text": "${isDeep ? '2-3 sentences about one real concern with the system based on the data.' : '2-3 sentences on what to focus on for the next 10-20 trades.'}"
+  }
+]`;
+
+  // Show loading + render visuals immediately
+  document.getElementById('advisorPlaceholder').style.display = 'none';
+  document.getElementById('advisorVisuals').style.display = 'block';
+  renderAdvisorVisuals();
+
+  document.getElementById('advisorInsights').innerHTML = `
+    <div class="advisor-loading" style="grid-column:1/-1">
+      <div class="spin-sm"></div>
+      <span>AI is analysing your ${T.length} trades...</span>
+    </div>`;
+
+  try {
+    const response = await fetch('https://divine-fire-0e3b.chamatabob.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON from response
+    let cards = [];
+    try {
+      const clean = text.replace(/```json|```/g,'').trim();
+      cards = JSON.parse(clean);
+    } catch(e) {
+      // Try to extract JSON array from text
+      const match = text.match(/\[[\s\S]*\]/);
+      if(match) cards = JSON.parse(match[0]);
+    }
+
+    if(cards.length) {
+      document.getElementById('advisorInsights').innerHTML = cards.map(c=>`
+        <div class="insight-card ${c.color}">
+          <div class="insight-icon">${c.icon}</div>
+          <div class="insight-title">${c.title}</div>
+          <div class="insight-bignum">${c.bignum}</div>
+          <div class="insight-text">${c.text}</div>
+        </div>`).join('');
+    } else {
+      document.getElementById('advisorInsights').innerHTML = `<div style="color:var(--muted);font-size:12px;padding:10px">Could not parse AI response. Try again.</div>`;
+    }
+
+    const now = new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('advisorStamp').textContent = `🧠 ${isDeep?'Deep':'Quick'} Analysis · ${now} · ${T.length} trades · $${Math.round(currentBal).toLocaleString()} balance`;
+
+  } catch(err) {
+    document.getElementById('advisorInsights').innerHTML = `<div style="color:var(--loss);font-size:12px;padding:10px">Could not generate AI insights. Check connection.<br><span style="color:var(--muted);font-size:11px">${err.message}</span></div>`;
+  }
+}
 
 // ── RENDER ALL ───────────────────────────────
 window.renderAll=function(){
@@ -906,6 +1477,8 @@ window.renderAll=function(){
   renderCharts();
   renderTable();
   updateExport();
+  // Only render recovery if tab is active
+  if(document.getElementById('tab-recovery').classList.contains('active')) renderRecovery();
 };
 </script>
 </body>
