@@ -87,7 +87,7 @@
 
   window._fbSave = async (tradesArr) => {
     try {
-      const toSave = tradesArr.filter(t => t._source !== 'ea');
+      const toSave = tradesArr.filter(t => t._source !== 'ea'); // keeps WD entries
       await setDoc(DOC_MANUAL, { trades: toSave });
       window._syncStatus('saved');
     } catch(e) { console.error(e); window._syncStatus('error'); }
@@ -115,6 +115,33 @@
     eaTrades = snap.exists() ? parseEATrades(snap.data()) : [];
     mergeAndRecalc();
   }, (err) => { console.warn(err.message); eaTrades = []; mergeAndRecalc(); });
+
+  // ── WITHDRAWAL LOG in Firestore ──
+  const DOC_WD = doc(db, 'journal', 'withdrawals');
+
+  window._fbSaveWd = async (wdArr) => {
+    try {
+      await setDoc(DOC_WD, { log: wdArr });
+    } catch(e) { console.error('WD save error:', e); }
+  };
+
+  onSnapshot(DOC_WD, (snap) => {
+    if(snap.exists() && snap.data().log) {
+      window.wdLog = snap.data().log;
+    } else {
+      window.wdLog = [];
+    }
+    // Re-render withdrawal tab if active
+    if(document.getElementById('tab-withdrawal') &&
+       document.getElementById('tab-withdrawal').classList.contains('active')) {
+      if(typeof renderWithdrawal === 'function') renderWithdrawal();
+    }
+    // Update net balance KPI
+    if(typeof renderKPIs === 'function') renderKPIs();
+  }, (err) => {
+    console.warn('WD listener:', err.message);
+    window.wdLog = window.wdLog || [];
+  });
 </script>
 <style>
   :root {
@@ -282,6 +309,44 @@
   .gauge-track { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; margin-bottom:8px; }
   .gauge-fill { height:100%; border-radius:3px; transition:width .8s cubic-bezier(.4,0,.2,1); }
   .gauge-value { font-size:16px; font-weight:800; }
+
+  /* ── WITHDRAWAL STRATEGY ── */
+  .wd-input-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px; }
+  .wd-status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+  .wd-status-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; position:relative; overflow:hidden; }
+  .wd-status-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent-line, var(--accent)); }
+  .wd-status-card.green::before { --accent-line: var(--win); }
+  .wd-status-card.yellow::before { --accent-line: var(--accent3); }
+  .wd-status-card.red::before { --accent-line: var(--loss); }
+  .wd-status-card.blue::before { --accent-line: #60a5fa; }
+  .wd-label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+  .wd-value { font-size:24px; font-weight:800; letter-spacing:-1px; margin-bottom:4px; }
+  .wd-sub { font-size:11px; color:var(--muted); }
+  .wd-recommendation { border-radius:10px; padding:18px 20px; margin-bottom:16px; display:flex; align-items:center; gap:16px; }
+  .wd-recommendation.green { background:rgba(0,229,160,.08); border:1px solid rgba(0,229,160,.25); }
+  .wd-recommendation.yellow { background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.25); }
+  .wd-recommendation.red { background:rgba(255,77,109,.08); border:1px solid rgba(255,77,109,.25); }
+  .wd-rec-icon { font-size:32px; flex-shrink:0; }
+  .wd-rec-title { font-size:14px; font-weight:800; margin-bottom:4px; }
+  .wd-rec-title.green { color:var(--win); }
+  .wd-rec-title.yellow { color:var(--accent3); }
+  .wd-rec-title.red { color:var(--loss); }
+  .wd-rec-text { font-size:12px; color:#a0a8b8; line-height:1.6; }
+  .bucket-viz { display:flex; height:28px; border-radius:6px; overflow:hidden; margin:12px 0; }
+  .bucket-seg { display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#000; transition:width .6s cubic-bezier(.4,0,.2,1); min-width:0; overflow:hidden; white-space:nowrap; }
+  .wd-log-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+  .wd-log-entry { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface2); border-radius:8px; margin-bottom:8px; font-size:12px; }
+  .wd-log-entry:last-child { margin-bottom:0; }
+  .wd-log-date { color:var(--muted); width:90px; flex-shrink:0; }
+  .wd-log-amount { font-weight:700; color:var(--accent3); width:80px; flex-shrink:0; }
+  .wd-log-bal { color:var(--muted); flex:1; }
+  .wd-log-note { color:var(--muted); font-style:italic; flex:1; }
+  .wd-log-del { color:var(--loss); cursor:pointer; padding:2px 6px; border-radius:3px; background:rgba(255,77,109,.1); border:none; font-size:11px; flex-shrink:0; }
+  .wd-log-del:hover { background:rgba(255,77,109,.2); }
+  .wd-quarter-progress { margin:12px 0; }
+  .wd-qp-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .wd-qp-track { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .wd-qp-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent3),var(--win)); transition:width .6s; }
   #loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
   #loadingOverlay .spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -311,6 +376,7 @@
     <button class="tab" onclick="showTab('data')">Import / Export</button>
     <button class="tab" onclick="showTab('recovery')">Recovery Tracker</button>
     <button class="tab" onclick="showTab('advisor')">AI Advisor</button>
+    <button class="tab" onclick="showTab('withdrawal')">Withdrawal Strategy</button>
   </div>
 
   <!-- OVERVIEW -->
@@ -519,6 +585,100 @@
 
     <div id="advisorPlaceholder" style="color:var(--muted);font-size:13px;padding:20px 0;">
       Click <strong style="color:var(--text)">"Generate Analysis"</strong> to get your personalised dashboard.
+    </div>
+  </div>
+
+  <!-- WITHDRAWAL STRATEGY -->
+  <div id="tab-withdrawal" class="tab-content">
+
+    <!-- INPUTS -->
+    <div class="section-title">Strategy Parameters</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="wd-input-grid">
+        <div class="form-group">
+          <label>Safety Base Capital ($)</label>
+          <input type="number" id="wd_base" value="10000" step="500" onchange="renderWithdrawal()">
+        </div>
+        <div class="form-group">
+          <label>Withdrawal % of Monthly Profit</label>
+          <input type="number" id="wd_pct" value="50" step="5" min="10" max="90" onchange="renderWithdrawal()">
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">
+        💡 Rule: If the month is profitable AND balance is above safety base → withdraw <strong id="wdPctLabel" style="color:var(--accent3)">50%</strong> of that month's profit. Simple.
+      </div>
+    </div>
+
+    <!-- RECOMMENDATION -->
+    <div class="section-title">Current Recommendation</div>
+    <div id="wdRecommendation"></div>
+
+    <!-- STATUS CARDS -->
+    <div class="section-title">Account Status</div>
+    <div class="wd-status-grid" id="wdStatusCards"></div>
+
+    <!-- BUCKET VISUALIZER -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Balance Breakdown — 3 Bucket System</div>
+      <div class="bucket-viz" id="wdBucketViz"></div>
+      <div style="display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:8px;flex-wrap:wrap">
+        <span><span style="color:#60a5fa">■</span> Safety Base</span>
+        <span><span style="color:var(--accent3)">■</span> Growth Reserve</span>
+        <span><span style="color:var(--win)">■</span> Withdrawable Surplus</span>
+        <span><span style="color:var(--surface2);border:1px solid var(--border)">■</span> Gap to Base</span>
+      </div>
+      <!-- Quarter progress -->
+      <div class="wd-quarter-progress" id="wdQuarterProgress"></div>
+    </div>
+
+    <!-- MONTHLY BREAKDOWN TABLE -->
+    <div class="section-title">Monthly Withdrawal Breakdown</div>
+    <div class="card" style="margin-bottom:16px">
+      <div id="wdMonthlyTable"><div style="color:var(--muted);font-size:12px">Loading...</div></div>
+    </div>
+
+    <!-- SIMULATION CHART -->
+    <div class="section-title">12-Month Forward Simulation</div>
+    <div class="chart-grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">Balance Projection <span class="tag" id="wdProjTag"></span></div>
+        <canvas id="wdProjectionChart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Cumulative Withdrawals</div>
+        <canvas id="wdWithdrawalChart"></canvas>
+      </div>
+    </div>
+
+    <!-- WITHDRAWAL LOG -->
+    <div class="section-title">Withdrawal Log</div>
+    <div class="card">
+      <div class="wd-log-form">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="wd_log_date">
+        </div>
+        <div class="form-group">
+          <label>Amount Withdrawn ($)</label>
+          <input type="number" id="wd_log_amount" placeholder="e.g. 500" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Balance After ($)</label>
+          <input type="number" id="wd_log_bal" placeholder="e.g. 9500" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="wd_log_note" placeholder="e.g. Monthly surplus">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="addWithdrawal()">Log Withdrawal</button>
+      </div>
+      <div id="wdLogList"><div style="color:var(--muted);font-size:12px">No withdrawals logged yet.</div></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px">
+        <span style="color:var(--muted)">Total Withdrawn</span>
+        <span style="font-weight:700;color:var(--accent3)" id="wdTotalOut">$0</span>
+      </div>
     </div>
   </div>
 </div>
@@ -733,7 +893,7 @@ function save() { window._syncStatus('saving'); if(typeof window._fbSave==='func
 
 // ── SYSTEM HEALTH ENGINE ─────────────────────
 function computeHealth() {
-  const T = window.trades;
+  const T = window.trades.filter(t=>!t._isWithdrawal);
   if(!T.length) return {score:100,color:'green',status:'No Data',desc:'Add trades to begin tracking.',scores:[]};
 
   const wins   = T.filter(t=>t.wl==='W');
@@ -820,7 +980,8 @@ function renderHealth() {
 
 // ── STATS ────────────────────────────────────
 function computeStats() {
-  const T=window.trades;
+  // Exclude withdrawal entries from stats
+  const T=window.trades.filter(t=>!t._isWithdrawal);
   const wins=T.filter(t=>t.wl==='W'), losses=T.filter(t=>t.wl==='L');
   const winRate=T.length?wins.length/T.length*100:0;
   const avgWinR=avg(wins.map(t=>t.rR)), avgLossR=avg(losses.map(t=>Math.abs(t.rR)));
@@ -853,6 +1014,7 @@ function renderKPIs() {
     {label:'Max L Streak',val:String(s.maxLStreak),sub:`Max W Streak: ${s.maxWStreak}`,cls:'red',card:'neutral'},
     {label:'Account Growth',val:fmtPct(s.totalGainPct),sub:`${fmtDol(s.initBal)} → ${fmtDol(s.finalBal)}`,cls:s.totalGainPct>0?'green':'red'},
     {label:'Total Trades',val:String(window.trades.length),sub:'Completed trades',cls:'',card:'neutral'},
+    {label:'Net Balance',val:'$'+(s.finalBal-(window.wdLog||[]).reduce((a,w)=>a+w.amount,0)).toLocaleString('en-US',{maximumFractionDigits:0}),sub:'After withdrawals',cls:s.finalBal>s.initBal?'green':'red',card:'yellow'},
   ];
   $('kpiGrid').innerHTML=kpis.map(k=>`<div class="kpi ${k.card||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   $('tradeCountBadge').textContent=window.trades.length+' Trades';
@@ -869,10 +1031,51 @@ const baseOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{displa
 function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 
 function renderCharts() {
-  const T=window.trades; if(!T.length) return;
+  const T=window.trades.filter(t=>!t._isWithdrawal); if(!T.length) return;
   const labels=T.map((_,i)=>'#'+(i+1));
   dc('equity');
-  charts['equity']=new Chart($('equityChart'),{type:'line',data:{labels,datasets:[{label:'Balance',data:T.map(t=>t.bal),borderColor:'#00e5a0',borderWidth:2,pointRadius:0,fill:true,backgroundColor:'rgba(0,229,160,0.06)',tension:0.3},{label:'Peak',data:T.map(t=>t.peak),borderColor:'rgba(251,191,36,0.5)',borderWidth:1,pointRadius:0,fill:false,borderDash:[4,4],tension:0.3}]},options:{...baseOpts,interaction:{mode:'index',intersect:false}}});
+  // Use ALL trades including WD for equity curve accuracy
+  const allT = window.trades;
+  const allLabels = allT.map((t,i) => t._isWithdrawal ? 'WD' : '#'+(i+1));
+  charts['equity']=new Chart($('equityChart'),{
+    type:'line',
+    data:{
+      labels: allLabels,
+      datasets:[
+        {label:'Balance', data:allT.map(t=>t.bal),
+         borderColor:'#00e5a0', borderWidth:2,
+         pointRadius: allT.map(t=>t._isWithdrawal?7:0),
+         pointBackgroundColor: allT.map(t=>t._isWithdrawal?'#fbbf24':'#00e5a0'),
+         pointStyle: allT.map(t=>t._isWithdrawal?'triangle':'circle'),
+         pointBorderColor: allT.map(t=>t._isWithdrawal?'#000':'#00e5a0'),
+         pointBorderWidth: allT.map(t=>t._isWithdrawal?1:0),
+         fill:true, backgroundColor:'rgba(0,229,160,0.06)', tension:0.3},
+        {label:'Peak', data:allT.map(t=>t.peak),
+         borderColor:'rgba(251,191,36,0.5)', borderWidth:1,
+         pointRadius:0, fill:false, borderDash:[4,4], tension:0.3}
+      ]
+    },
+    options:{
+      ...baseOpts,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        ...baseOpts.plugins,
+        legend:{display:true,position:'bottom',labels:{color:'#e8eaf0',padding:12,font:{size:10},
+          filter: (item) => item.text !== 'Peak'
+        }},
+        tooltip:{
+          backgroundColor:'#181c23',titleColor:'#e8eaf0',bodyColor:'#a0a8b8',borderColor:'#2a2e3a',borderWidth:1,
+          callbacks:{
+            label: function(ctx) {
+              const t = allT[ctx.dataIndex];
+              if(t && t._isWithdrawal) return '💸 Withdrawal: -$'+Math.abs(t.r$)+' → Bal: $'+t.bal.toLocaleString();
+              return ctx.dataset.label+': $'+(ctx.parsed.y||0).toLocaleString();
+            }
+          }
+        }
+      }
+    }
+  });
   const wins=T.filter(t=>t.wl==='W').length;
   dc('winloss');
   charts['winloss']=new Chart($('winLossChart'),{type:'doughnut',data:{labels:['Wins','Losses'],datasets:[{data:[wins,T.length-wins],backgroundColor:['rgba(0,229,160,0.8)','rgba(255,77,109,0.8)'],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:true,cutout:'70%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#e8eaf0',padding:14,font:{size:11}}},tooltip:{backgroundColor:'#181c23',titleColor:'#e8eaf0',bodyColor:'#a0a8b8',borderColor:'#2a2e3a',borderWidth:1}}}});
@@ -885,7 +1088,8 @@ function renderCharts() {
   charts['dd']=new Chart($('ddChart'),{type:'line',data:{labels,datasets:[{label:'DD%',data:T.map(t=>-t.ddPct),borderColor:'rgba(255,77,109,0.8)',borderWidth:1.5,pointRadius:0,fill:true,backgroundColor:'rgba(255,77,109,0.07)',tension:0.2}]},options:{...baseOpts}});
   dc('risk');
   charts['risk']=new Chart($('riskChart'),{type:'bar',data:{labels,datasets:[{data:T.map(t=>t.risk),backgroundColor:'rgba(124,141,168,0.5)',borderRadius:2}]},options:{...baseOpts}});
-  $('streakDots').innerHTML=T.map((t,i)=>`<div class="streak-dot ${t.wl.toLowerCase()}" title="#${i+1} ${t.date||''}: ${t.r$>=0?'+':''}$${t.r$}">${t.wl}</div>`).join('');
+  const realTradesForDots = T.filter(t=>!t._isWithdrawal);
+  $('streakDots').innerHTML=realTradesForDots.map((t,i)=>`<div class="streak-dot ${t.wl.toLowerCase()}" title="#${i+1} ${t.date||''}: ${t.r$>=0?'+':''}$${t.r$}">${t.wl}</div>`).join('');
   const s=computeStats();
   $('summaryCont').innerHTML=[
     ['Starting Balance','$'+s.initBal.toFixed(2)],['Current Balance','$'+s.finalBal.toFixed(2)],
@@ -896,17 +1100,22 @@ function renderCharts() {
     ['Profit Factor',s.profitFactor===Infinity?'∞':s.profitFactor.toFixed(2)],
     ['Max Drawdown',s.maxDD.toFixed(1)+'% / '+fmtDol(s.maxDDdol)],
     ['Max L Streak',String(s.maxLStreak)],['Max W Streak',String(s.maxWStreak)],
+    ['Total Withdrawn','$'+(window.wdLog||[]).reduce((a,w)=>a+w.amount,0).toLocaleString('en-US',{maximumFractionDigits:0})],
+    ['Net Balance','$'+(s.finalBal-(window.wdLog||[]).reduce((a,w)=>a+w.amount,0)).toLocaleString('en-US',{maximumFractionDigits:0})],
   ].map(([k,v])=>`<div class="summary-row"><span>${k}</span><span style="color:${String(v).startsWith('-')?'var(--loss)':String(v).startsWith('+')?'var(--win)':'var(--text)'}">${v}</span></div>`).join('');
 }
 
 // ── PNL with REAL dates ───────────────────────
 function groupByMonth(T) {
   const map={};
-  T.forEach(t=>{
-    const d=t.date||'2025-01-01';
-    const key=d.slice(0,7); // YYYY-MM
+  // Use all trades including WD entries for grouping
+  const allT = window.trades;
+  allT.forEach(t=>{
+    const d=t.date||'2026-01-01';
+    const key=d.slice(0,7);
     if(!map[key]) map[key]={pnl:0,trades:[]};
-    map[key].pnl+=t.r$; map[key].trades.push(t);
+    if(!t._isWithdrawal) map[key].pnl+=t.r$; // only count real trades in PNL
+    map[key].trades.push(t);
   });
   return map;
 }
@@ -930,7 +1139,7 @@ function groupByWeek(T) {
 }
 
 function renderPNL() {
-  const T=window.trades; if(!T.length) return;
+  const T=window.trades.filter(t=>!t._isWithdrawal); if(!T.length) return;
   const labels=T.map((_,i)=>'#'+(i+1));
   dc('daily');
   charts['daily']=new Chart($('dailyChart'),{type:'bar',data:{labels,datasets:[{data:T.map(t=>t.r$),backgroundColor:T.map(t=>t.r$>=0?'rgba(0,229,160,0.7)':'rgba(255,77,109,0.7)'),borderRadius:3}]},options:{...baseOpts}});
@@ -970,7 +1179,23 @@ function renderPNL() {
   const moVals=moKeys.map(k=>Math.round(moMap[k].pnl));
   const moNames={'2025-01':'Jan 25','2025-02':'Feb 25','2025-03':'Mar 25','2025-04':'Apr 25','2025-05':'May 25','2025-06':'Jun 25','2025-07':'Jul 25','2025-08':'Aug 25','2025-09':'Sep 25','2025-10':'Oct 25','2025-11':'Nov 25','2025-12':'Dec 25','2026-01':'Jan 26','2026-02':'Feb 26','2026-03':'Mar 26','2026-04':'Apr 26','2026-05':'May 26','2026-06':'Jun 26','2026-07':'Jul 26','2026-08':'Aug 26','2026-09':'Sep 26','2026-10':'Oct 26','2026-11':'Nov 26','2026-12':'Dec 26'};
   dc('monthly');
-  charts['monthly']=new Chart($('monthlyChart'),{type:'bar',data:{labels:moKeys.map(k=>moNames[k]||k),datasets:[{data:moVals,backgroundColor:moVals.map(v=>v>=0?'rgba(0,229,160,0.7)':'rgba(255,77,109,0.7)'),borderRadius:4}]},options:{...baseOpts}});
+  // WD totals per month
+  const moWdVals = moKeys.map(k => {
+    const wds = (window.trades||[]).filter(t=>t._isWithdrawal && t.date && t.date.startsWith(k));
+    return wds.length ? -Math.round(wds.reduce((a,t)=>a+Math.abs(t.r$),0)) : null;
+  });
+  const hasWd = moWdVals.some(v=>v!==null && v<0);
+  charts['monthly']=new Chart($('monthlyChart'),{
+    type:'bar',
+    data:{
+      labels:moKeys.map(k=>moNames[k]||k),
+      datasets:[
+        {label:'Trading PNL', data:moVals, backgroundColor:moVals.map(v=>v>=0?'rgba(0,229,160,0.7)':'rgba(255,77,109,0.7)'), borderRadius:4},
+        ...(hasWd?[{label:'💸 Withdrawals', data:moWdVals, backgroundColor:'rgba(251,191,36,0.65)', borderRadius:4}]:[])
+      ]
+    },
+    options:{...baseOpts, plugins:{...baseOpts.plugins, legend:{display:hasWd,position:'bottom',labels:{color:'#e8eaf0',padding:12,font:{size:10}}}}}
+  });
   $('monthlyTag').textContent='Total: '+fmt$(moVals.reduce((a,b)=>a+b,0));
 
   // Top/Bottom 5
@@ -987,23 +1212,43 @@ function renderPNL() {
   const maxMoAbs=Math.max(...moVals.map(Math.abs));
   $('monthlyPnlList').innerHTML=moKeys.map((k,i)=>{
     const mo=moMap[k];
-    const mwr=mo.trades.filter(t=>t.wl==='W').length/mo.trades.length*100;
+    const realT=mo.trades.filter(t=>!t._isWithdrawal);
+    const mwins=realT.filter(t=>t.wl==='W').length;
+    const mlosses=realT.length-mwins;
+    const mwr=realT.length?mwins/realT.length*100:0;
     const v=moVals[i];
-    const mwins=mo.trades.filter(t=>t.wl==='W').length;
-    const mlosses=mo.trades.length-mwins;
-    return `<div class="pnl-row">
-      <div class="pnl-label" style="width:70px">${moNames[k]||k}</div>
-      <div class="pnl-bar-track"><div class="pnl-bar-fill" style="width:${maxMoAbs?Math.abs(v)/maxMoAbs*100:0}%;background:${v>=0?'var(--win)':'var(--loss)'}"></div></div>
-      <div class="pnl-amount ${v>=0?'pos':'neg'}">${fmt$(v)}</div>
-      <div style="width:90px;font-size:10px;color:var(--muted);text-align:right">${mwr.toFixed(0)}% WR (${mwins}W/${mlosses}L)</div>
+    // WD this month
+    const moWDs=(window.trades||[]).filter(t=>t._isWithdrawal && t.date && t.date.startsWith(k));
+    const moWDtotal=Math.round(moWDs.reduce((a,t)=>a+Math.abs(t.r$),0));
+    const maxMoAbs2=Math.max(...moVals.map(Math.abs),1);
+    return `<div style="margin-bottom:10px">
+      <div class="pnl-row">
+        <div class="pnl-label" style="width:70px">${moNames[k]||k}</div>
+        <div class="pnl-bar-track"><div class="pnl-bar-fill" style="width:${Math.abs(v)/maxMoAbs2*100}%;background:${v>=0?'var(--win)':'var(--loss)'}"></div></div>
+        <div class="pnl-amount ${v>=0?'pos':'neg'}">${fmt$(Math.round(v))}</div>
+        <div style="width:100px;font-size:10px;color:var(--muted);text-align:right">${mwr.toFixed(0)}% (${mwins}W/${mlosses}L)</div>
+      </div>
+      ${moWDtotal>0?`<div style="padding:3px 0 0 4px;font-size:11px;color:var(--accent3)">💸 Withdrew $${moWDtotal.toLocaleString()} · Net kept: $${Math.round(v-moWDtotal).toLocaleString()}</div>`:''}
     </div>`;
   }).join('');
 }
 
 // ── TABLE ────────────────────────────────────
 function renderTable() {
-  $('tradeTableBody').innerHTML=window.trades.map((t,i)=>`
-    <tr>
+  $('tradeTableBody').innerHTML=window.trades.map((t,i)=>{
+    if(t._isWithdrawal) {
+      return `<tr style="background:rgba(251,191,36,0.04);border-left:3px solid var(--accent3)">
+        <td style="color:var(--muted)">${i+1}</td>
+        <td style="color:var(--accent3);font-size:11px">${formatDate(t.date)}</td>
+        <td class="neg" style="color:var(--accent3)">-$${Math.abs(t.r$)}</td>
+        <td style="color:var(--muted)">—</td>
+        <td><span class="pill" style="background:rgba(251,191,36,0.15);color:var(--accent3)">WD</span></td>
+        <td style="color:var(--accent3);font-weight:700">$${Number(t.bal).toLocaleString()}</td>
+        <td colspan="5" style="color:var(--muted);font-size:11px;font-style:italic">${t.note||'Withdrawal'}</td>
+        <td></td>
+      </tr>`;
+    }
+    return `<tr>
       <td style="color:var(--muted)">${i+1}</td>
       <td style="color:var(--muted);font-size:11px">${formatDate(t.date)}</td>
       <td class="${t.r$>=0?'pos':'neg'}">${t.r$>=0?'+':''}$${t.r$}</td>
@@ -1016,7 +1261,8 @@ function renderTable() {
       <td style="color:var(--muted)">${t.risk}%</td>
       <td class="${t.gainPct>=0?'pos':'neg'}">${t.gainPct>=0?'+':''}${t.gainPct}%</td>
       <td style="color:${t.lStreak>=3?'var(--loss)':t.lStreak>=1?'var(--accent3)':'var(--muted)'}">${t.lStreak}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ── ADD/DELETE ───────────────────────────────
@@ -1090,6 +1336,7 @@ function showTab(id){
   if(id==='data') updateExport();
   if(id==='recovery') renderRecovery();
   if(id==='advisor') { /* renders on button click */ }
+  if(id==='withdrawal') { renderWithdrawal(); const today=new Date().toISOString().slice(0,10); const nm=new Date(); const mStart=nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0')+'-01'; if(!document.getElementById('wd_qstart').value) document.getElementById('wd_qstart').value=mStart; if(!document.getElementById('wd_log_date').value) document.getElementById('wd_log_date').value=today; }
 }
 
 // ── TOAST ────────────────────────────────────
@@ -1497,6 +1744,386 @@ Return ONLY a valid JSON array with exactly 4 objects. No markdown, no explanati
     document.getElementById('advisorInsights').innerHTML = `<div style="color:var(--loss);font-size:12px;padding:10px">Could not generate AI insights. Check connection.<br><span style="color:var(--muted);font-size:11px">${err.message}</span></div>`;
   }
 }
+
+
+// ── WITHDRAWAL STRATEGY ──────────────────────
+// window.wdLog is now window.wdLog — synced via Firebase
+window.wdLog = window.wdLog || [];
+
+function saveWdLog() {
+  if(typeof window._fbSaveWd === 'function') window._fbSaveWd(window.wdLog);
+}
+
+function renderWithdrawal() {
+  const T = window.trades.filter(t=>!t._isWithdrawal);
+  if(!T.length) return;
+
+  const s = computeStats();
+  const currentBal = T[T.length-1].bal;
+  const safeBase   = parseFloat(document.getElementById('wd_base').value) || 10000;
+  const wdPct      = parseFloat(document.getElementById('wd_pct').value) || 50;
+
+  // Update label
+  const lbl = document.getElementById('wdPctLabel');
+  if(lbl) lbl.textContent = wdPct+'%';
+
+  // ── MONTHLY BREAKDOWN ──
+  const now2 = new Date();
+  const currentMonthKey = now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0');
+  const moNames = {'2026-01':'Jan 26','2026-02':'Feb 26','2026-03':'Mar 26','2026-04':'Apr 26',
+    '2026-05':'May 26','2026-06':'Jun 26','2026-07':'Jul 26','2026-08':'Aug 26',
+    '2026-09':'Sep 26','2026-10':'Oct 26','2026-11':'Nov 26','2026-12':'Dec 26'};
+
+  // Group by month — all trades including WD
+  const moMap = {};
+  window.trades.forEach(t => {
+    const k = (t.date||'2026-01').slice(0,7);
+    if(!moMap[k]) moMap[k] = { trades:[], realTrades:[], wdTrades:[] };
+    moMap[k].trades.push(t);
+    if(t._isWithdrawal) moMap[k].wdTrades.push(t);
+    else moMap[k].realTrades.push(t);
+  });
+  const moKeys = Object.keys(moMap).sort();
+
+  // Calculate for each month
+  const monthlyData = moKeys.map(k => {
+    const mo = moMap[k];
+    const profit = mo.realTrades.reduce((a,t)=>a+t.r$, 0);
+    const endBal = mo.trades.length ? mo.trades[mo.trades.length-1].bal : 0;
+    const wins = mo.realTrades.filter(t=>t.wl==='W').length;
+    const wr = mo.realTrades.length ? wins/mo.realTrades.length*100 : 0;
+    const loggedWd = mo.wdTrades.reduce((a,t)=>a+Math.abs(t.r$), 0);
+    const isCurrentMonth = k === currentMonthKey;
+    const isPast = k < currentMonthKey;
+
+    // Simple rule: profitable + above base = withdraw wdPct% of profit
+    let maxWd = 0, status = '', statusColor = 'var(--muted)';
+    if(profit <= 0) {
+      status = '❌ Not profitable'; statusColor = 'var(--loss)';
+    } else if(endBal < safeBase) {
+      status = '⚠️ Below base'; statusColor = 'var(--accent3)';
+      // Partial: only if profit itself would still keep us above base
+      maxWd = Math.max(0, Math.min(Math.round(profit*(wdPct/100)), endBal-safeBase));
+      if(maxWd <= 0) { status = '⚠️ Below base — no WD'; maxWd = 0; }
+    } else {
+      maxWd = Math.round(profit * (wdPct/100));
+      if(isCurrentMonth) { status = '📅 In progress'; statusColor = 'var(--accent)'; }
+      else if(loggedWd >= maxWd*0.95) { status = '✓ Done'; statusColor = 'var(--muted)'; }
+      else { status = '⬆ Withdraw $'+maxWd.toLocaleString(); statusColor = 'var(--win)'; }
+    }
+
+    return { k, name:moNames[k]||k, profit:Math.round(profit), endBal:Math.round(endBal),
+             wins, losses:mo.realTrades.length-wins, wr:Math.round(wr),
+             maxWd, loggedWd:Math.round(loggedWd), status, statusColor,
+             isCurrentMonth, isPast, tradeCount:mo.realTrades.length };
+  });
+
+  // ── RECOMMENDATION ──
+  const actionMonths = monthlyData.filter(m => m.isPast && m.maxWd > 0 && m.loggedWd < m.maxWd*0.95);
+  const lastMonth = monthlyData.filter(m=>m.isPast).slice(-1)[0];
+  const thisMonth = monthlyData.find(m=>m.isCurrentMonth);
+
+  let recColor, recIcon, recTitle, recText;
+  if(currentBal < safeBase) {
+    recColor='red'; recIcon='🛑';
+    recTitle='No Withdrawal — Below Safety Base';
+    recText=`Balance $${Math.round(currentBal).toLocaleString()} is $${Math.round(safeBase-currentBal).toLocaleString()} below your $${safeBase.toLocaleString()} base. No withdrawals until you reach the base.`;
+  } else if(actionMonths.length > 0) {
+    const pending = actionMonths[actionMonths.length-1];
+    const remaining = pending.maxWd - pending.loggedWd;
+    recColor='green'; recIcon='✅';
+    recTitle=`Withdraw $${remaining.toLocaleString()} from ${pending.name}`;
+    recText=`${pending.name} profit: $${pending.profit.toLocaleString()} (${pending.wr}% WR, ${pending.wins}W/${pending.losses}L). Your ${wdPct}% = $${pending.maxWd.toLocaleString()}. ${pending.loggedWd>0?`Already logged $${pending.loggedWd.toLocaleString()}, remaining: $${remaining.toLocaleString()}. `:''}After withdrawal your balance stays at $${(pending.endBal-remaining).toLocaleString()} — safely above base.`;
+  } else if(thisMonth && thisMonth.profit > 0) {
+    recColor='yellow'; recIcon='📅';
+    recTitle=`Month in Progress — $${Math.round(thisMonth.profit).toLocaleString()} profit so far`;
+    recText=`If ${thisMonth.name} closes positively, you can withdraw $${Math.round(thisMonth.profit*(wdPct/100)).toLocaleString()} (${wdPct}% of profit). Keep trading and check at month end.`;
+  } else {
+    recColor='yellow'; recIcon='📅';
+    recTitle='No Pending Withdrawals';
+    recText=`All past profitable months have been settled. Check back at the end of the current month.`;
+  }
+
+  document.getElementById('wdRecommendation').innerHTML = `
+    <div class="wd-recommendation ${recColor}">
+      <div class="wd-rec-icon">${recIcon}</div>
+      <div>
+        <div class="wd-rec-title ${recColor}">${recTitle}</div>
+        <div class="wd-rec-text">${recText}</div>
+      </div>
+    </div>`;
+
+  // ── STATUS CARDS ──
+  const totalWd = (window.wdLog||[]).reduce((a,w)=>a+w.amount,0);
+  const totalProfit = monthlyData.filter(m=>m.profit>0).reduce((a,m)=>a+m.profit,0);
+  const totalMaxWd  = monthlyData.filter(m=>m.maxWd>0).reduce((a,m)=>a+m.maxWd,0);
+  const thisMonthProfit = thisMonth ? thisMonth.profit : 0;
+  const thisMonthMaxWd  = thisMonth ? thisMonth.maxWd : 0;
+
+  document.getElementById('wdStatusCards').innerHTML = [
+    {label:'Current Balance',     value:'$'+Math.round(currentBal).toLocaleString(),         sub:currentBal>=safeBase?'✓ Above safety base':'Gap: $'+Math.round(safeBase-currentBal).toLocaleString(), color:currentBal>=safeBase?'green':'red', card:currentBal>=safeBase?'green':'red'},
+    {label:'Safety Base',         value:'$'+safeBase.toLocaleString(),                        sub:'Minimum account floor',                        color:'blue',  card:'blue'},
+    {label:'This Month Profit',   value:(thisMonthProfit>=0?'+':'')+'$'+Math.abs(thisMonthProfit).toLocaleString(), sub:thisMonth?thisMonth.tradeCount+' trades · '+thisMonth.wr+'% WR':'No trades yet', color:thisMonthProfit>0?'green':'red', card:''},
+    {label:'This Month Max WD',   value:thisMonthMaxWd>0?'$'+thisMonthMaxWd.toLocaleString():'$0', sub:wdPct+'% of month profit',                 color:thisMonthMaxWd>0?'yellow':'red', card:'yellow'},
+    {label:'Total Eligible WD',   value:'$'+totalMaxWd.toLocaleString(),                      sub:'All profitable months combined',               color:'green', card:''},
+    {label:'Total Withdrawn',     value:'$'+Math.round(totalWd).toLocaleString(),             sub:'Actually logged so far',                       color:'blue',  card:''},
+  ].map(c=>`
+    <div class="wd-status-card ${c.card}">
+      <div class="wd-label">${c.label}</div>
+      <div class="wd-value" style="color:${c.color==='green'?'var(--win)':c.color==='red'?'var(--loss)':c.color==='yellow'?'var(--accent3)':'#60a5fa'}">${c.value}</div>
+      <div class="wd-sub">${c.sub}</div>
+    </div>`).join('');
+
+  // ── BUCKET VIZ ──
+  const total = Math.max(currentBal, safeBase);
+  const baseW   = Math.min(100,(Math.min(currentBal,safeBase)/total)*100);
+  const surplusW= currentBal>safeBase ? Math.max(0,100-baseW) : 0;
+  const gapW    = currentBal<safeBase ? ((safeBase-currentBal)/total)*100 : 0;
+  document.getElementById('wdBucketViz').innerHTML = `
+    ${baseW>0    ?`<div class="bucket-seg" style="width:${baseW}%;background:#60a5fa">Base</div>`:''}
+    ${surplusW>0 ?`<div class="bucket-seg" style="width:${surplusW}%;background:var(--win)">Free Surplus</div>`:''}
+    ${gapW>0     ?`<div class="bucket-seg" style="width:${gapW}%;background:var(--surface2);border:1px solid var(--border);color:var(--muted)">Gap to Base</div>`:''}`;
+
+  // Remove quarter progress bar (no longer needed)
+  const qpEl = document.getElementById('wdQuarterProgress');
+  if(qpEl) qpEl.innerHTML = '';
+
+  // ── MONTHLY TABLE ──
+  const tableHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Month</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Trades</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">WR%</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Month Profit</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">End Balance</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Withdraw (${wdPct}%)</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Keep (${100-wdPct}%)</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Logged</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${monthlyData.map(m=>{
+          const kept = m.maxWd>0 ? m.profit-m.maxWd : 0;
+          const rowBg = m.isCurrentMonth?'rgba(0,229,160,0.04)':'';
+          return `<tr style="background:${rowBg}">
+            <td style="padding:8px 12px;font-weight:700;color:${m.isCurrentMonth?'var(--accent)':'var(--text)'}">${m.name}${m.isCurrentMonth?' ◀':''}</td>
+            <td style="padding:8px 12px;text-align:center;color:var(--muted)">${m.tradeCount}</td>
+            <td style="padding:8px 12px;text-align:center;color:${m.wr>=60?'var(--win)':m.wr>=45?'var(--accent3)':'var(--loss)'}">${m.wr}%</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:700;color:${m.profit>=0?'var(--win)':'var(--loss)'}">${m.profit>=0?'+':''}$${Math.abs(m.profit).toLocaleString()}</td>
+            <td style="padding:8px 12px;text-align:right;color:var(--text)">$${m.endBal.toLocaleString()}</td>
+            <td style="padding:8px 12px;text-align:right;font-weight:700;color:${m.maxWd>0?'var(--accent3)':'var(--muted)'}">${m.maxWd>0?'$'+m.maxWd.toLocaleString():'—'}</td>
+            <td style="padding:8px 12px;text-align:right;color:var(--muted)">${kept>0?'$'+kept.toLocaleString():'—'}</td>
+            <td style="padding:8px 12px;text-align:right;color:${m.loggedWd>0?'var(--win)':'var(--muted)'}">${m.loggedWd>0?'$'+m.loggedWd.toLocaleString():'—'}</td>
+            <td style="padding:8px 12px;font-size:11px;color:${m.statusColor}">${m.status}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--border)">
+          <td colspan="3" style="padding:10px 12px;font-weight:700;font-size:11px;color:var(--muted)">TOTALS</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:800;color:var(--win)">+$${totalProfit.toLocaleString()}</td>
+          <td></td>
+          <td style="padding:10px 12px;text-align:right;font-weight:800;color:var(--accent3)">$${totalMaxWd.toLocaleString()}</td>
+          <td style="padding:10px 12px;text-align:right;color:var(--muted)">$${(totalProfit-totalMaxWd).toLocaleString()}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:800;color:var(--win)">$${Math.round(totalWd).toLocaleString()}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>`;
+
+  const monthlyDiv = document.getElementById('wdMonthlyTable');
+  if(monthlyDiv) monthlyDiv.innerHTML = tableHTML;
+
+  // ── 12-MONTH FORWARD SIMULATION (simple) ──
+  const moGainsArr = moKeys.slice(0,-1).map(k =>
+    moMap[k].realTrades.reduce((a,t)=>a+t.r$,0)
+  );
+  const avgMonthlyGain = moGainsArr.length
+    ? moGainsArr.reduce((a,b)=>a+b,0)/moGainsArr.length
+    : s.expectancy * currentBal * (avg(T.map(t=>t.risk))/100) * 20;
+
+  const months = ['Now','M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12'];
+  const sim = (gainMult) => {
+    let bal = currentBal, cumWd = 0;
+    const bals = [currentBal], wds = [0];
+    for(let m=1;m<=12;m++){
+      const gain = avgMonthlyGain * gainMult;
+      bal += gain;
+      const wdAmt = (gain > 0 && bal > safeBase) ? Math.round(gain*(wdPct/100)) : 0;
+      bal -= wdAmt; cumWd += wdAmt;
+      bals.push(Math.round(bal)); wds.push(cumWd);
+    }
+    return {bals, wds, finalBal:bals[12], cumWd};
+  };
+
+  const cons = sim(0.7), base = sim(1.0), opt = sim(1.3);
+  document.getElementById('wdProjTag').textContent =
+    `Base: $${base.finalBal.toLocaleString()} + $${base.cumWd.toLocaleString()} withdrawn`;
+
+  dc('wdProjection');
+  charts['wdProjection'] = new Chart(document.getElementById('wdProjectionChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Conservative (70%)',data:cons.bals,borderColor:'rgba(255,77,109,0.5)',borderWidth:1.5,pointRadius:0,fill:false,borderDash:[4,4],tension:0.3},
+      {label:'Base Case',        data:base.bals,borderColor:'#00e5a0',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#00e5a0',fill:false,tension:0.3},
+      {label:'Optimistic (130%)',data:opt.bals, borderColor:'rgba(251,191,36,0.5)',borderWidth:1.5,pointRadius:0,fill:false,borderDash:[4,4],tension:0.3},
+      {label:'Safety Base',      data:months.map(()=>safeBase),borderColor:'rgba(96,165,250,0.4)',borderWidth:1,pointRadius:0,fill:false,borderDash:[6,4],tension:0},
+    ]},
+    options:{...baseOpts,plugins:{...baseOpts.plugins,legend:{display:true,position:'bottom',labels:{color:'#e8eaf0',padding:12,font:{size:10}}}},interaction:{mode:'index',intersect:false}}
+  });
+
+  dc('wdWithdrawal');
+  charts['wdWithdrawal'] = new Chart(document.getElementById('wdWithdrawalChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Conservative WD',data:cons.wds,borderColor:'rgba(255,77,109,0.5)',borderWidth:1.5,pointRadius:0,fill:false,borderDash:[4,4],tension:0.3},
+      {label:'Base Case WD',   data:base.wds,borderColor:'#fbbf24',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#fbbf24',fill:true,backgroundColor:'rgba(251,191,36,0.06)',tension:0.3},
+      {label:'Optimistic WD',  data:opt.wds, borderColor:'rgba(0,229,160,0.5)',borderWidth:1.5,pointRadius:0,fill:false,borderDash:[4,4],tension:0.3},
+    ]},
+    options:{...baseOpts,plugins:{...baseOpts.plugins,legend:{display:true,position:'bottom',labels:{color:'#e8eaf0',padding:12,font:{size:10}}}},interaction:{mode:'index',intersect:false}}
+  });
+
+  renderWdLog();
+}
+
+function renderWdLog() {
+  const totalWd = window.wdLog.reduce((a,w) => a+w.amount, 0);
+  document.getElementById('wdTotalOut').textContent = '$'+totalWd.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  if(!window.wdLog.length) {
+    document.getElementById('wdLogList').innerHTML = '<div style="color:var(--muted);font-size:12px">No withdrawals logged yet.</div>';
+    return;
+  }
+
+  document.getElementById('wdLogList').innerHTML = [...window.wdLog].reverse().map((w,ri)=>{
+    const i = window.wdLog.length-1-ri;
+    return `<div class="wd-log-entry">
+      <div class="wd-log-date">${w.date}</div>
+      <div class="wd-log-amount">-$${w.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div class="wd-log-bal">Bal: $${w.balAfter.toLocaleString()}</div>
+      <div class="wd-log-note">${w.note||'—'}</div>
+      <button class="wd-log-del" onclick="deleteWithdrawal(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addWithdrawal() {
+  const date   = document.getElementById('wd_log_date').value;
+  const amount = parseFloat(document.getElementById('wd_log_amount').value);
+  const bal    = parseFloat(document.getElementById('wd_log_bal').value);
+  const note   = document.getElementById('wd_log_note').value;
+  if(!date||isNaN(amount)||isNaN(bal)){ toast('Fill date, amount and balance after!'); return; }
+
+  // Save to withdrawal log
+  window.wdLog.push({ date, amount, balAfter: bal, note });
+  saveWdLog();
+
+  // ── Inject a balance adjustment entry into trades ──
+  // Find the right position — insert after the last trade on or before this date
+  const T = window.trades;
+  let insertIdx = T.length; // default: end
+  for(let i=0; i<T.length; i++){
+    if(T[i].date && T[i].date > date){
+      insertIdx = i;
+      break;
+    }
+  }
+
+  // The balance before withdrawal = previous trade's balance
+  const prevBal = insertIdx > 0 ? T[insertIdx-1].bal : bal+amount;
+
+  const wdEntry = {
+    r$: -amount,
+    rR: 0,
+    wl: 'WD', // special type
+    bal: Math.round((prevBal - amount)*100)/100,
+    peak: insertIdx > 0 ? T[insertIdx-1].peak : prevBal,
+    dd$: 0,
+    ddPct: 0,
+    lStreak: 0,
+    risk: 0,
+    gainPct: 0,
+    startBal: prevBal,
+    date: date,
+    note: note || 'Withdrawal',
+    _isWithdrawal: true
+  };
+
+  // Insert at correct position
+  T.splice(insertIdx, 0, wdEntry);
+
+  // Recalculate balance chain from insertion point forward
+  for(let i = insertIdx+1; i < T.length; i++){
+    if(T[i]._isWithdrawal) {
+      // For subsequent withdrawals, recalc their balance too
+      T[i].startBal = T[i-1].bal;
+      T[i].bal = Math.round((T[i-1].bal - T[i].r$*-1)*100)/100;
+    } else {
+      T[i].startBal = T[i-1].bal;
+      T[i].bal = Math.round((T[i-1].bal + T[i].r$)*100)/100;
+      T[i].gainPct = T[i-1].bal > 0 ? Math.round((T[i].r$/T[i-1].bal)*10000)/100 : 0;
+    }
+    // Recalc peak and DD
+    T[i].peak = Math.max(T[i-1].peak, T[i].bal);
+    T[i].dd$ = Math.max(0, Math.round((T[i].peak - T[i].bal)*100)/100);
+    T[i].ddPct = Math.round((T[i].dd$/T[i].peak)*100);
+    // Recalc lStreak (only for real trades)
+    if(!T[i]._isWithdrawal){
+      T[i].lStreak = T[i].wl==='L' ? (T[i-1].lStreak+1) : 0;
+    }
+  }
+
+  // Save updated trades to Firebase
+  save();
+  renderAll();
+
+  // Clear form
+  document.getElementById('wd_log_amount').value='';
+  document.getElementById('wd_log_bal').value='';
+  document.getElementById('wd_log_note').value='';
+  toast('Withdrawal logged & balance updated!');
+}
+
+function deleteWithdrawal(i) {
+  const wd = window.wdLog[i];
+  
+  // Remove corresponding WD entry from trades
+  const T = window.trades;
+  const wdIdx = T.findIndex(t => t._isWithdrawal && t.date === wd.date && Math.abs(t.r$) === wd.amount);
+  if(wdIdx >= 0) {
+    T.splice(wdIdx, 1);
+    // Recalculate balance chain from removal point
+    for(let j = wdIdx; j < T.length; j++){
+      const prev = j > 0 ? T[j-1] : null;
+      if(prev) {
+        T[j].startBal = prev.bal;
+        T[j].bal = T[j]._isWithdrawal
+          ? Math.round((prev.bal - Math.abs(T[j].r$))*100)/100
+          : Math.round((prev.bal + T[j].r$)*100)/100;
+        T[j].gainPct = !T[j]._isWithdrawal && prev.bal > 0
+          ? Math.round((T[j].r$/prev.bal)*10000)/100 : 0;
+        T[j].peak = Math.max(prev.peak, T[j].bal);
+        T[j].dd$ = Math.max(0, Math.round((T[j].peak - T[j].bal)*100)/100);
+        T[j].ddPct = Math.round((T[j].dd$/T[j].peak)*100);
+        if(!T[j]._isWithdrawal)
+          T[j].lStreak = T[j].wl==='L' ? (prev.lStreak+1) : 0;
+      }
+    }
+    save();
+    renderAll();
+  }
+
+  window.wdLog.splice(i,1);
+  saveWdLog();
+  renderWdLog();
+  toast('Withdrawal deleted & balance restored!');
+}
+
 
 // ── RENDER ALL ───────────────────────────────
 window.renderAll=function(){
