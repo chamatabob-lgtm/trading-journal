@@ -9,6 +9,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCNZYkaj1nDV7ELeokAk41LvjfsKb6V1tM",
     authDomain: "trading-journal-81467.firebaseapp.com",
@@ -19,10 +20,50 @@
   };
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
+  const auth = getAuth(app);
   const DOC_MANUAL = doc(db, 'journal', 'trades');
   const DOC_EA     = doc(db, 'journal', 'trades_raw');
+  const DOC_BRIDGE = doc(db, 'journal', 'trades_bridge');
   let manualTrades = null;
   let eaTrades     = null;
+  let bridgeTrades = null;
+  let listenersAttached = false;
+
+  // ── AUTH GATE ──────────────────────────────
+  window._doLogin = async (email, pass) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      return null; // success
+    } catch (e) {
+      return e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
+        ? 'Wrong email or password.' : e.message;
+    }
+  };
+  window._doLogout = () => signOut(auth);
+
+  onAuthStateChanged(auth, (user) => {
+    const gate = document.getElementById('authGate');
+    const shell = document.querySelector('.app-shell');
+    if (user) {
+      gate.style.display = 'none';
+      shell.style.display = 'flex';
+      if (!listenersAttached) { attachDataListeners(); listenersAttached = true; }
+    } else {
+      gate.style.display = 'flex';
+      shell.style.display = 'none';
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  });
+
+  function parseBridgeTrades(docData) {
+    if (!docData || !Array.isArray(docData.trades)) return [];
+    return docData.trades.map(t => ({
+      r$: Number(t.r$)||0, rR: Number(t.rR)||0, wl: t.wl==='L'?'L':'W',
+      risk: Number(t.risk)||0, date: t.date || new Date().toISOString().slice(0,10),
+      bal:0, peak:0, dd$:0, ddPct:0, lStreak:0, startBal:0, gainPct:0,
+      _source:'mt5', _ticket:t.ticket, _symbol:t.symbol
+    }));
+  }
 
   function parseEATrades(docData) {
     if (!docData) return [];
@@ -56,9 +97,12 @@
   }
 
   function mergeAndRecalc() {
-    if (manualTrades === null || eaTrades === null) return;
-    const combined = [...manualTrades, ...eaTrades];
+    if (manualTrades === null || eaTrades === null || bridgeTrades === null) return;
+    const combined = [...manualTrades, ...eaTrades, ...bridgeTrades];
     if (combined.length === 0) { window.trades = []; return; }
+    // Chronological order matters for correct running balance/drawdown now that
+    // trades can stream in continuously from the MT5 bridge alongside manual entries.
+    combined.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     let runningPeak = combined[0].startBal || 3533;
     let lStreak = 0;
     combined.forEach((t, i) => {
@@ -87,61 +131,67 @@
 
   window._fbSave = async (tradesArr) => {
     try {
-      const toSave = tradesArr.filter(t => t._source !== 'ea'); // keeps WD entries
+      const toSave = tradesArr.filter(t => t._source !== 'ea' && t._source !== 'mt5'); // keeps WD entries, drops auto-synced sources
       await setDoc(DOC_MANUAL, { trades: toSave });
       window._syncStatus('saved');
     } catch(e) { console.error(e); window._syncStatus('error'); }
   };
 
-  onSnapshot(DOC_MANUAL, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      manualTrades = (data && data.trades) ? data.trades : [];
-    } else {
-      if (!window._defaultPushed) {
-        window._defaultPushed = true;
-        // Apply correct dates before saving
-        const defaultWithDates = window.DEFAULT_TRADES.map((t,i) => ({
-          ...t, date: HISTORICAL_DATES[i] || t.date
-        }));
-        manualTrades = defaultWithDates;
-        window._fbSave(defaultWithDates);
-      } else { manualTrades = []; }
-    }
-    mergeAndRecalc();
-  }, (err) => { console.error(err); window._syncStatus('offline'); });
+  function attachDataListeners() {
+    onSnapshot(DOC_MANUAL, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        manualTrades = (data && data.trades) ? data.trades : [];
+      } else {
+        if (!window._defaultPushed) {
+          window._defaultPushed = true;
+          // Apply correct dates before saving
+          const defaultWithDates = window.DEFAULT_TRADES.map((t,i) => ({
+            ...t, date: HISTORICAL_DATES[i] || t.date
+          }));
+          manualTrades = defaultWithDates;
+          window._fbSave(defaultWithDates);
+        } else { manualTrades = []; }
+      }
+      mergeAndRecalc();
+    }, (err) => { console.error(err); window._syncStatus('offline'); });
 
-  onSnapshot(DOC_EA, (snap) => {
-    eaTrades = snap.exists() ? parseEATrades(snap.data()) : [];
-    mergeAndRecalc();
-  }, (err) => { console.warn(err.message); eaTrades = []; mergeAndRecalc(); });
+    onSnapshot(DOC_EA, (snap) => {
+      eaTrades = snap.exists() ? parseEATrades(snap.data()) : [];
+      mergeAndRecalc();
+    }, (err) => { console.warn(err.message); eaTrades = []; mergeAndRecalc(); });
 
-  // ── WITHDRAWAL LOG in Firestore ──
+    onSnapshot(DOC_BRIDGE, (snap) => {
+      bridgeTrades = snap.exists() ? parseBridgeTrades(snap.data()) : [];
+      mergeAndRecalc();
+    }, (err) => { console.warn(err.message); bridgeTrades = []; mergeAndRecalc(); });
+
+    // ── WITHDRAWAL LOG in Firestore ──
+    onSnapshot(DOC_WD, (snap) => {
+      if(snap.exists() && snap.data().log) {
+        window.wdLog = snap.data().log;
+      } else {
+        window.wdLog = [];
+      }
+      // Re-render withdrawal tab if active
+      if(document.getElementById('tab-withdrawal') &&
+         document.getElementById('tab-withdrawal').classList.contains('active')) {
+        if(typeof renderWithdrawal === 'function') renderWithdrawal();
+      }
+      // Update net balance KPI
+      if(typeof renderKPIs === 'function') renderKPIs();
+    }, (err) => {
+      console.warn('WD listener:', err.message);
+      window.wdLog = window.wdLog || [];
+    });
+  }
+
   const DOC_WD = doc(db, 'journal', 'withdrawals');
-
   window._fbSaveWd = async (wdArr) => {
     try {
       await setDoc(DOC_WD, { log: wdArr });
     } catch(e) { console.error('WD save error:', e); }
   };
-
-  onSnapshot(DOC_WD, (snap) => {
-    if(snap.exists() && snap.data().log) {
-      window.wdLog = snap.data().log;
-    } else {
-      window.wdLog = [];
-    }
-    // Re-render withdrawal tab if active
-    if(document.getElementById('tab-withdrawal') &&
-       document.getElementById('tab-withdrawal').classList.contains('active')) {
-      if(typeof renderWithdrawal === 'function') renderWithdrawal();
-    }
-    // Update net balance KPI
-    if(typeof renderKPIs === 'function') renderKPIs();
-  }, (err) => {
-    console.warn('WD listener:', err.message);
-    window.wdLog = window.wdLog || [];
-  });
 </script>
 <style>
   :root {
@@ -414,6 +464,12 @@
   .wd-qp-track { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
   .wd-qp-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent3),var(--win)); transition:width .6s; }
   #loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  #authGate{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-card{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px 28px;text-align:center;}
+  .auth-card h2{font-size:18px;font-weight:800;margin-bottom:6px;}
+  .auth-card p{font-size:12px;color:var(--muted);margin-bottom:22px;}
+  .auth-card .form-group{text-align:left;margin-bottom:14px;}
+  .auth-error{font-size:11px;color:var(--loss);min-height:14px;margin-bottom:4px;text-align:left;}
   #loadingOverlay .spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   #loadingOverlay p{color:var(--muted);font-size:13px;}
@@ -432,7 +488,21 @@
 </head>
 <body>
 <div id="loadingOverlay"><div class="spin"></div><p>Connecting to cloud...</p></div>
-<div class="app-shell">
+<div id="authGate">
+  <div class="auth-card">
+    <div class="logo-mark" style="width:44px;height:44px;font-size:16px;margin:0 auto 14px;">TJ</div>
+    <h2>Trading Journal</h2>
+    <p>Sign in to view your private dashboard.</p>
+    <form id="authForm" onsubmit="return false;">
+      <div class="form-group"><label>Email</label><input type="email" id="auth_email" autocomplete="username" required></div>
+      <div class="form-group"><label>Password</label><input type="password" id="auth_pass" autocomplete="current-password" required></div>
+      <div id="authError" class="auth-error"></div>
+      <button class="btn btn-primary" id="authSubmitBtn" style="width:100%;margin-top:6px;" onclick="handleAuthSubmit()">Sign In</button>
+    </form>
+  </div>
+</div>
+<div class="app-shell" style="display:none;">
+
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="logo-mark">TJ</div>
@@ -459,6 +529,7 @@
     <div class="sidebar-footer">
       <span class="badge badge-trades" id="tradeCountBadge">— Trades</span>
       <span class="badge badge-sync sync-connecting" id="syncBadge">&#8635; Connecting</span>
+      <button class="tab" style="justify-content:center;color:var(--loss);" onclick="window._doLogout && window._doLogout()"><span class="nav-ic">&#9210;</span> Sign Out</button>
     </div>
   </aside>
   <div class="main-area">
@@ -1463,6 +1534,27 @@ function showTab(id){
 
 // ── TOAST ────────────────────────────────────
 function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2400);}
+
+// ── AUTH ─────────────────────────────────────
+async function handleAuthSubmit(){
+  const email = document.getElementById('auth_email').value.trim();
+  const pass  = document.getElementById('auth_pass').value;
+  const errEl = document.getElementById('authError');
+  const btn   = document.getElementById('authSubmitBtn');
+  errEl.textContent = '';
+  if(!email || !pass){ errEl.textContent = 'Enter your email and password.'; return; }
+  btn.textContent = 'Signing in...'; btn.disabled = true;
+  const err = await window._doLogin(email, pass);
+  btn.textContent = 'Sign In'; btn.disabled = false;
+  if(err) errEl.textContent = err;
+}
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && document.getElementById('authGate') && document.getElementById('authGate').style.display !== 'none'){
+    const active = document.activeElement;
+    if(active && (active.id === 'auth_email' || active.id === 'auth_pass')) handleAuthSubmit();
+  }
+});
+
 
 
 // ── RECOVERY TRACKER ─────────────────────────
